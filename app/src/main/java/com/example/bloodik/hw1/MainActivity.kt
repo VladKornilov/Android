@@ -6,6 +6,7 @@ import android.util.Log
 import android.widget.TextView
 import kotlinx.android.synthetic.main.activity_main.*
 import android.os.Build
+import android.os.VibrationEffect
 import android.os.Vibrator
 import android.support.v7.app.AppCompatActivity
 import android.view.Window
@@ -16,8 +17,9 @@ import java.text.NumberFormat
 
 class MainActivity : AppCompatActivity() {
     var formulaText: String = ""
-    var digits: Array<TextView>? = null
-    var signs: Array<TextView>? = null
+    lateinit var digits: Array<TextView>
+    lateinit var signs: Array<TextView>
+    lateinit var input: Array<TextView>
     val parser: ExpressionParser = ExpressionParser()
     val signChars: String = "+-×÷"
     val LOG_TAG: String = "Main-Activity"
@@ -30,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         digits = arrayOf(n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, point)
         signs = arrayOf(add, sub, mul, div)
-
+        input = digits.clone() + signs.clone() + arrayOf(open, close)
 
         hideKeyboard()
         setButtonsListener()
@@ -57,48 +59,16 @@ class MainActivity : AppCompatActivity() {
             selection = formula.selectionStart
             Log.d(LOG_TAG, "" + selection)
         }
-        for (digit in digits!!) {
-            digit.setOnClickListener {
-                val newF = formulaText.substring(0, selection) + digit.text + formulaText.substring(selection)
-                if (parser.checkSyntax(newF)) {
-                    formulaText = newF
-                    selection++
-                    recalcAnswer()
-                }
 
-                //answer.text = parser.parse(formulaText)
-            }
-        }
-
-        for (sign in signs!!) {
-            sign.setOnClickListener {
-                val newF = formulaText.substring(0, selection) + sign.text + formulaText.substring(selection)
+        for (button in input) {
+            button.setOnClickListener {
+                val newF = formulaText.substring(0, selection) + button.text + formulaText.substring(selection)
                 if (parser.checkSyntax(newF)) {
                     formulaText = newF
                     selection++
                     recalcAnswer()
                 }
             }
-        }
-
-        open.setOnClickListener {
-            val newF = formulaText.substring(0, selection) + open.text + formulaText.substring(selection)
-            if (parser.checkSyntax(newF)) {
-                formulaText = newF
-                selection++
-                recalcAnswer()
-            }
-        }
-
-        close.setOnClickListener {
-            val newF = formulaText.substring(0, selection) + close.text + formulaText.substring(selection)
-            if (parser.checkSyntax(newF)) {
-                formulaText = newF
-                selection++
-                recalcAnswer()
-            }
-
-            //answer.text = parser.parse(formulaText)
         }
 
         del.setOnClickListener {
@@ -110,25 +80,29 @@ class MainActivity : AppCompatActivity() {
         }
 
         del.setOnLongClickListener {
+            //while (selection != 0) //doesn't work
+            if (selection != 0) {
+                formulaText = formulaText.substring(0, selection - 1) + formulaText.substring(selection)
+                selection--
+                recalcAnswer()
+                Thread.sleep(100)
+            }
+            true
+        }
+
+        clear.setOnClickListener {
             formulaText = ""
             selection = 0
             formula.setText("")
             answer.text = ""
-            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            if (vibrator.hasVibrator()) { vibrator.vibrate(100) }
-
-            true
+            vibrate(100)
         }
 
         count.setOnClickListener {
-            if (!parser.checkSyntax(formulaText))
-                formulaText = "Error"
             formulaText = parser.parse(formulaText)
             selection = formulaText.length
             recalcAnswer()
             answer.text = ""
-
-
         }
     }
 
@@ -137,6 +111,16 @@ class MainActivity : AppCompatActivity() {
         formula.setSelection(selection)
         if (parser.checkSyntax(formulaText))
             answer.text = parser.parse(formulaText)
+    }
+
+    private fun vibrate(millis: Long) {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (vibrator.hasVibrator()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE))
+            }
+            else { vibrator.vibrate(millis) }
+        }
     }
 
     private fun hideKeyboard() {
